@@ -1,11 +1,19 @@
 package com.example.top;
 
+import android.app.AlertDialog;
 import android.app.DatePickerDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
 import android.widget.DatePicker;
+import android.widget.EditText;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatImageView;
@@ -19,6 +27,7 @@ import com.bumptech.glide.request.RequestOptions;
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.appbar.CollapsingToolbarLayout;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.raizlabs.android.dbflow.sql.language.SQLite;
 
@@ -31,6 +40,8 @@ import butterknife.ButterKnife;
 import butterknife.OnClick;
 
 public class DetalleActivity extends AppCompatActivity implements DatePickerDialog.OnDateSetListener {
+
+    private static final int RC_PHOTO_PICKER = 21;
 
     @BindView(R.id.imgFoto)
     AppCompatImageView imgFoto;
@@ -63,7 +74,7 @@ public class DetalleActivity extends AppCompatActivity implements DatePickerDial
 
     private Artista mArtista;
     private Calendar mCalendar;
-
+    private MenuItem mMenuItem;
     private boolean mIsEdit;
 
     @Override
@@ -143,10 +154,52 @@ public class DetalleActivity extends AppCompatActivity implements DatePickerDial
         mCalendar = Calendar.getInstance(Locale.ROOT);
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_save, menu);
+        mMenuItem = menu.findItem(R.id.action_save);
+        mMenuItem.setVisible(false);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.action_save:
+                saveOrEdit();
+                break;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if(resultCode == RESULT_OK){
+            switch (requestCode){
+                case RC_PHOTO_PICKER:
+                    savePhotoUrlArtist(data.getDataString());
+                    break;
+            }
+        }
+    }
+
+    private void savePhotoUrlArtist(String fotoUrl) {
+        try {
+            mArtista.setFotoUrl(fotoUrl);
+            mArtista.update();
+            configImageView(fotoUrl);
+            showMessage(R.string.detalle_message_update_success);
+        } catch (Exception e) {
+            e.printStackTrace();
+            showMessage(R.string.detalle_message_update_fail);
+        }
+    }
+
     @OnClick(R.id.fab)
     public void saveOrEdit() {
         if (mIsEdit) {
-            if(validateFields()) {
+            if (validateFields()) {
                 mArtista.setNombre(etNombre.getText().toString().trim());
                 mArtista.setApellido(etApellidos.getText().toString().trim());
                 mArtista.setEstatura(Short.valueOf(etEstatura.getText().toString().trim()));
@@ -155,9 +208,12 @@ public class DetalleActivity extends AppCompatActivity implements DatePickerDial
 
                 try {
                     mArtista.update();
+                    configTitle();
+                    showMessage(R.string.detalle_message_update_success);
                     Log.i("DBFlow", "Inserción correcta de datos.");
-                } catch (Exception e){
+                } catch (Exception e) {
                     e.printStackTrace();
+                    showMessage(R.string.detalle_message_update_fail);
                     Log.i("DBFlow", "Error al insertar datos.");
                 }
             }
@@ -175,23 +231,23 @@ public class DetalleActivity extends AppCompatActivity implements DatePickerDial
     private boolean validateFields() {
         boolean isValid = true;
 
-        if(etEstatura.getText().toString().trim().isEmpty() ||
-                Integer.valueOf(etEstatura.getText().toString()) < getResources().getInteger(R.integer.estatura_min)){
+        if (etEstatura.getText().toString().trim().isEmpty() ||
+                Integer.valueOf(etEstatura.getText().toString()) < getResources().getInteger(R.integer.estatura_min)) {
             etEstatura.setError(getString(R.string.addArtist_error_estaturaMin));
             etEstatura.requestFocus();
-            isValid=false;
+            isValid = false;
         }
 
-        if(etApellidos.getText().toString().trim().isEmpty()){
+        if (etApellidos.getText().toString().trim().isEmpty()) {
             etApellidos.setError(getString(R.string.addArtist_error_required));
             etApellidos.requestFocus();
-            isValid=false;
+            isValid = false;
         }
 
-        if(etNombre.getText().toString().trim().isEmpty()){
+        if (etNombre.getText().toString().trim().isEmpty()) {
             etNombre.setError(getString(R.string.addArtist_error_required));
             etNombre.requestFocus();
-            isValid=false;
+            isValid = false;
         }
 
         return isValid;
@@ -204,6 +260,10 @@ public class DetalleActivity extends AppCompatActivity implements DatePickerDial
         etEstatura.setEnabled(enable);
         etLugarNacimiento.setEnabled(enable);
         etNotas.setEnabled(enable);
+
+        mMenuItem.setVisible(enable);
+        appBar.setExpanded(!enable);
+        containerMain.setNestedScrollingEnabled(!enable);
     }
 
     @Override
@@ -230,5 +290,55 @@ public class DetalleActivity extends AppCompatActivity implements DatePickerDial
         args.putLong(DialogSelectorFecha.FECHA, mArtista.getFechaNacimiento());
         selectorFecha.setArguments(args);
         selectorFecha.show(getSupportFragmentManager(), DialogSelectorFecha.SELECTED_DATE);
+    }
+
+    private void showMessage(int resource) {
+        Snackbar.make(containerMain, resource, Snackbar.LENGTH_SHORT).show();
+    }
+
+    @OnClick({R.id.imgDeleteFoto, R.id.imgFromGallery, R.id.imgFromUrl})
+    public void photoHandle(View view) {
+        switch (view.getId()) {
+            case R.id.imgDeleteFoto:
+                AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                        .setTitle(R.string.detalle_dialogDelete_title)
+                        .setMessage(String.format(Locale.ROOT,
+                                getString(R.string.detalle_dialogDelete_message),
+                                mArtista.getNombreCompleto()))
+                        .setPositiveButton(R.string.label_dialog_delete, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                savePhotoUrlArtist(null);
+                            }
+                        })
+                        .setNegativeButton(R.string.label_dialog_cancel, null);
+                builder.show();
+                break;
+            case R.id.imgFromGallery:
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.setType("image/jpeg");
+                intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
+                startActivityForResult(Intent.createChooser(intent,
+                        getString(R.string.detalle_chooser_title)), RC_PHOTO_PICKER);
+                break;
+            case R.id.imgFromUrl:
+                showAddPhotoDialog();
+                break;
+        }
+    }
+
+    private void showAddPhotoDialog() {
+        final EditText etFotoUrl = new EditText(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle(R.string.add_artist_dialogUrl_title)
+                .setPositiveButton(R.string.Label_dialog_add, new DialogInterface.OnClickListener()  {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        savePhotoUrlArtist(etFotoUrl.getText().toString().trim());
+                    }
+                })
+                .setNegativeButton(R.string.label_dialog_cancel, null);
+        builder.setView(etFotoUrl);
+        builder.show();
     }
 }

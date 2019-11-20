@@ -13,6 +13,7 @@ import android.widget.DatePicker;
 import android.widget.EditText;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatImageView;
@@ -32,6 +33,8 @@ import butterknife.ButterKnife;
 import butterknife.OnClick;
 
 public class AddArtistActivity extends AppCompatActivity implements DatePickerDialog.OnDateSetListener {
+
+    private static final int RC_PHOTO_PICKER = 21;
 
     @BindView(R.id.imgFoto)
     AppCompatImageView imgFoto;
@@ -103,7 +106,6 @@ public class AddArtistActivity extends AppCompatActivity implements DatePickerDi
     }
 
     private void saveArtist() {
-
         if(validateFields()) {
             mArtista.setNombre(etNombre.getText().toString().trim());
             mArtista.setApellido(etApellidos.getText().toString().trim());
@@ -158,6 +160,18 @@ public class AddArtistActivity extends AppCompatActivity implements DatePickerDi
         return isValid;
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if(resultCode == RESULT_OK){
+            switch (requestCode){
+                case RC_PHOTO_PICKER:
+                    configImageView(data.getDataString());
+                    break;
+            }
+        }
+    }
+
     @OnClick(R.id.etFechaNacimiento)
     public void onSetFecha() {
         DialogSelectorFecha selectorFecha = new DialogSelectorFecha();
@@ -187,8 +201,26 @@ public class AddArtistActivity extends AppCompatActivity implements DatePickerDi
     public void imageEvent(View view) {
         switch (view.getId()) {
             case R.id.imgDeleteFoto:
+                AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                        .setTitle(R.string.detalle_dialogDelete_title)
+                        .setMessage(String.format(Locale.ROOT,
+                                getString(R.string.detalle_dialogDelete_message),
+                                mArtista.getNombreCompleto()))
+                        .setPositiveButton(R.string.label_dialog_delete, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                configImageView(null);
+                            }
+                        })
+                        .setNegativeButton(R.string.label_dialog_cancel, null);
+                builder.show();
                 break;
             case R.id.imgFromGallery:
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.setType("image/jpeg");
+                intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
+                startActivityForResult(Intent.createChooser(intent,
+                        getString(R.string.detalle_chooser_title)), RC_PHOTO_PICKER);
                 break;
             case R.id.imgFromUrl:
                 showAddPhotoDialog();

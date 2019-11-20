@@ -1,22 +1,28 @@
 package com.example.top;
 
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Vibrator;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.snackbar.Snackbar;
 import com.raizlabs.android.dbflow.sql.language.SQLite;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -45,7 +51,7 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
         configAdapter();
         configRecyclerView();
 
-        //generateArtist();
+        // generateArtist();
     }
 
     private void generateArtist() {
@@ -61,7 +67,7 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
             Artista artista = new Artista(nombres[i], apellidos[i], nacimientos[i], lugares[i], estaturas[i], notas[i], i + 1, fotos[i]);
             // adapter.add(artista);
             try {
-                artista.save();
+                artista.insert();
                 Log.i("DBFlow", "Inserción correcta de datos.");
             } catch (Exception e){
                 e.printStackTrace();
@@ -141,7 +147,33 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
 
     @Override
     public void onLongItemClick(Artista artista) {
+        Vibrator vibrator = (Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
+        if(vibrator!=null){
+            vibrator.vibrate(60);
+        }
 
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle(R.string.main_dialog_title)
+                .setMessage(
+                        String.format(Locale.ROOT,
+                                getString(R.string.main_dialog_message),
+                                artista.getNombreCompleto()))
+                .setPositiveButton(R.string.label_dialog_delete, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        try {
+                            artista.delete();
+                            adapter.remove(artista);
+                            showMessage(R.string.main_message_delete_success);
+                        } catch (Exception e){
+                            e.printStackTrace();
+                            showMessage(R.string.main_message_delete_fail);
+                        }
+
+                    }
+                })
+                .setNegativeButton(R.string.label_dialog_cancel, null);
+        builder.show();
     }
 
     /*@Override
@@ -158,5 +190,9 @@ public class MainActivity extends AppCompatActivity implements OnItemClickListen
         intent.putExtra(Artista.ORDEN, adapter.getItemCount() + 1);
         //startActivity(intent);
         startActivityForResult(intent, 1);
+    }
+
+    private void showMessage(int resource) {
+        Snackbar.make(containerMain, resource, Snackbar.LENGTH_SHORT).show();
     }
 }

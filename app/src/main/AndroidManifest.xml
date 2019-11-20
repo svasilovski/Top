@@ -3,6 +3,7 @@
     package="com.example.top">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".MyApplication"
@@ -14,7 +15,7 @@
         android:theme="@style/AppTheme">
         <activity
             android:name=".DetalleActivity"
-            android:label="@string/title_activity_detalle"
+            android:label="@string/detalle.title"
             android:parentActivityName=".MainActivity"
             android:theme="@style/AppTheme.NoActionBar">
             <meta-data
